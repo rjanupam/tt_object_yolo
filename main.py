@@ -2,9 +2,9 @@ import argparse
 import os
 import subprocess
 
-import cv2
-import supervision as sv
-import torch
+from cv2 import imread, imwrite, resize
+from supervision import BoundingBoxAnnotator, Detections, LabelAnnotator
+from torch.hub import download_url_to_file
 from ultralytics import YOLO
 
 
@@ -13,7 +13,7 @@ def download_model(model_name="yolov8x.pt"):
         model = YOLO(model_name)
     except Exception:
         print(f"Downloading {model_name}...")
-        torch.hub.download_url_to_file(
+        download_url_to_file(
             f"https://github.com/ultralytics/assets/releases/download/v0.0.0/{model_name}",
             model_name,
         )
@@ -22,12 +22,12 @@ def download_model(model_name="yolov8x.pt"):
 
 
 def analyze_room_occupancy(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.resize(image, (640, 640))
+    image = imread(image_path)
+    image = resize(image, (640, 640))
 
     results = model(image)[0]
 
-    detections = sv.Detections(
+    detections = Detections(
         xyxy=results.boxes.xyxy.cpu().numpy(),
         confidence=results.boxes.conf.cpu().numpy(),
         class_id=results.boxes.cls.cpu().numpy().astype(int),
@@ -64,8 +64,8 @@ def analyze_room_occupancy(image_path):
         "available_space": available_space,
     }
 
-    bounding_box_annotator = sv.BoundingBoxAnnotator()
-    label_annotator = sv.LabelAnnotator()
+    bounding_box_annotator = BoundingBoxAnnotator()
+    label_annotator = LabelAnnotator()
     annotated_image = bounding_box_annotator.annotate(
         scene=image.copy(), detections=detections
     )
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             base, ext = os.path.splitext(args.image)
             output_image_path = f"{base}_annotated{ext}"
             
-            cv2.imwrite(output_image_path, annotated_image)
+            imwrite(output_image_path, annotated_image)
             if not args.no_show:
                 subprocess.run(["xdg-open", output_image_path])
 
